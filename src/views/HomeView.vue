@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { AxiosStatic } from 'axios'
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { inject } from 'vue'
-import CustomToast from '../components/custom-toast.vue'
 
 type ImgbbResponseImage = {
   filename: string
@@ -48,10 +47,12 @@ const http = inject<AxiosStatic>('axios'),
     (files: File[]) => files[0].size <= 2000000 || 'File size must be less than equal 2MB.',
   ],
   disabled = ref(false),
-  messages = ref<{ message: string, color: string }[]>([]),
+  messages = reactive<{ message: string, color: string }[]>([]),
+  snackbar = ref(false),
   uploadImage = () => {
     if (valid.value) {
-      messages.value = []
+      messages.splice(0)
+      snackbar.value = false
       disabled.value = true
 
       const form = new FormData()
@@ -61,12 +62,14 @@ const http = inject<AxiosStatic>('axios'),
 
       http?.post<ImgbbResponse>('/1/upload', form)
         .then((resp) => {
-          images.value.push(resp.data.data.url)
+          images.value.unshift(resp.data.data.url)
           window.localStorage.setItem('images', JSON.stringify(images.value))
-          messages.value.push({ message: 'Gambar berhasil disimpan', color: 'success' })
+          messages.push({ message: 'Image has been stored.', color: 'success' })
+          snackbar.value = true
         })
         .catch((err) => {
-          messages.value.push({ message: err.response.data.error.message, color: 'error' })
+          messages.push({ message: err.response.data.error.message, color: 'error' })
+          snackbar.value = true
         })
         .finally(() => {
           files.value = []
@@ -108,6 +111,8 @@ onMounted(() => {
         </v-row>
       </v-col>
     </v-row>
-    <custom-toast :messages="messages" />
+    <v-snackbar v-for="(obj, idx) of messages" :key="idx" v-model="snackbar" :color="obj.color">
+      {{ obj.message }}
+    </v-snackbar>
   </v-container>
 </template>
